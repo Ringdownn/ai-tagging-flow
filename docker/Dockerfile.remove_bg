@@ -1,0 +1,31 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY docker/requirements-remove_bg.txt /tmp/requirements.txt
+RUN pip install -r /tmp/requirements.txt
+
+COPY config/ /app/config/
+COPY services/__init__.py /app/services/__init__.py
+COPY services/remove_bg_service.py /app/services/remove_bg_service.py
+
+RUN mkdir -p /app/models /app/temp \
+    && useradd -m -u 1000 appuser \
+    && chown -R appuser:appuser /app
+
+USER appuser
+
+EXPOSE 8001
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health')"
+
+CMD ["python", "-m", "uvicorn", "services.remove_bg_service:app", "--host", "0.0.0.0", "--port", "8001"]

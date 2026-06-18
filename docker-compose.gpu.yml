@@ -1,0 +1,6 @@
+services:
+  orchestration:
+    gpus: all
+    environment:
+      LOCAL_VLM_DEVICE: cuda
+      LOCAL_VLM_DTYPE: auto

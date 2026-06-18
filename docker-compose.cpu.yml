@@ -1,0 +1,9 @@
+services:
+  detect-crop:
+    environment:
+      YOLO_DEVICE: cpu
+
+  orchestration:
+    environment:
+      LOCAL_VLM_DEVICE: cpu
+      LOCAL_VLM_DTYPE: float32

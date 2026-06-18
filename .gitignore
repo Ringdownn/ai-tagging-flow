@@ -1,0 +1,44 @@
+# ============ Python ============
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+
+# ============ 大文件（模型权重） ============
+models/**
+!models/.gitkeep
+*.pt
+*.pth
+*.onnx
+*.safetensors
+*.bin
+
+# ============ 训练输出 ============
+training/outputs/*
+!training/outputs/.gitkeep
+
+# ============ 临时文件 ============
+temp/*
+!temp/.gitkeep
+
+# ============ 系统文件 ============
+.DS_Store
+Thumbs.db
+
+# ============ 环境/密钥 ============
+.env
+*.env.local
+
+# ============ 本地图片素材（不提交） ============
+商品照片/
+负例图/
+
+# ============ 运行时数据 ============
+data/
+outputs/
+notebooks/
+
+# ============ 上传打包文件 ============
+upload_to_cloud.zip

@@ -1,0 +1,33 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY docker/requirements-detect_crop.txt /tmp/requirements.txt
+RUN pip install ultralytics>=8.0.0 pillow>=10.0.0 fastapi>=0.104.0 \
+        "uvicorn[standard]>=0.24.0" requests>=2.31.0 python-multipart>=0.0.6 \
+    && pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+COPY config/ /app/config/
+COPY services/__init__.py /app/services/__init__.py
+COPY services/detect_crop_service.py /app/services/detect_crop_service.py
+
+RUN mkdir -p /app/models/yolo /app/temp \
+    && useradd -m -u 1000 appuser \
+    && chown -R appuser:appuser /app
+
+USER appuser
+
+EXPOSE 8002
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=180s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health')"
+
+CMD ["python", "-m", "uvicorn", "services.detect_crop_service:app", "--host", "0.0.0.0", "--port", "8002"]
