@@ -14,9 +14,10 @@ import json
 import shutil
 from pathlib import Path
 
-SRC_LABELS = Path("../data/open_datasets/labels")
-SRC_IMAGES = Path("../data/open_datasets/images")
-UPLOAD_DIR = Path("../temp/upload_to_cloud")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SRC_LABELS = PROJECT_ROOT / "data" / "open_datasets" / "labels"
+SRC_IMAGES = PROJECT_ROOT / "data" / "open_datasets" / "images"
+UPLOAD_DIR = PROJECT_ROOT / "temp" / "upload_to_cloud"
 UPLOAD_DATA = UPLOAD_DIR / "data"
 UPLOAD_IMAGES = UPLOAD_DATA / "images"
 

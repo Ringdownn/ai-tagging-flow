@@ -174,12 +174,17 @@ class Supervisor:
 
         # 4. 疑难图：交给 HardCaseAgent
         print(f"[INFO] Supervisor: 置信度 {confidence} / 复杂度 {complexity}，转 HardCaseAgent")
-        hard_result = await self.hard_case_agent.invoke(
-            image_b64,
-            existing=local_result["tags"],
-        )
+        try:
+            hard_result = await self.hard_case_agent.invoke(
+                image_b64,
+                existing=local_result["tags"],
+            )
+            tags = normalize_tags(hard_result["tags"])
+        except Exception as e:
+            # GLM API 失败时降级：返回本地模型结果
+            print(f"[WARN] HardCaseAgent 调用失败: {e}，降级使用本地模型结果")
+            tags = normalize_tags(local_result["tags"])
 
-        tags = normalize_tags(hard_result["tags"])
         tags["置信度"] = confidence  # 保留本地模型的置信度用于参考
         tags["复杂度"] = complexity
 
@@ -190,5 +195,5 @@ class Supervisor:
             "confidence": confidence,
             "complexity": complexity,
             "reason": "",
-            "tool_chain": hard_result.get("tool_chain", []),
+            "tool_chain": hard_result.get("tool_chain", []) if "hard_result" in locals() else [],
         }

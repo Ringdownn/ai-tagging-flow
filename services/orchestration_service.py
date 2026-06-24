@@ -60,10 +60,14 @@ async def tag_upload(file: UploadFile = File(...)):
         image_data = await file.read()
         if not image_data:
             raise HTTPException(status_code=400, detail="图片文件为空")
-        return await tag_image_bytes(image_data)
+        result = await tag_image_bytes(image_data)
+        return result
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"打标失败: {e}") from e
 
 

@@ -101,7 +101,15 @@ class BackgroundRemover:
 # ==================== FastAPI ====================
 
 app = FastAPI(title="商品抠图服务 - RMBG-2.0 ONNX")
-remover = BackgroundRemover(ONNX_MODEL_PATH)
+_remover: BackgroundRemover | None = None
+
+
+def get_remover() -> BackgroundRemover:
+    """懒加载模型，避免三服务同时启动时内存峰值过高。"""
+    global _remover
+    if _remover is None:
+        _remover = BackgroundRemover(ONNX_MODEL_PATH)
+    return _remover
 
 
 def limit_max_side(pil_image: Image.Image, max_side: int) -> Image.Image:
@@ -178,7 +186,7 @@ async def remove_bg(request: Request):
 
     # 3. 抠图
     try:
-        output = remover.remove(pil_image)
+        output = get_remover().remove(pil_image)
     except Exception as e:
         raise HTTPException(500, f"抠图推理失败: {e}")
 

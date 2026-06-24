@@ -27,9 +27,10 @@ ShareGPT 多模态格式:
 import json
 from pathlib import Path
 
-INPUT_FILE = Path("../data/open_datasets/labels/image_label_mapping.json")
-ALPACA_OUTPUT = Path("../data/open_datasets/labels/train_alpaca.json")
-SHAREGPT_OUTPUT = Path("../data/open_datasets/labels/train_sharegpt.json")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+INPUT_FILE = PROJECT_ROOT / "data" / "open_datasets" / "labels" / "image_label_mapping.json"
+ALPACA_OUTPUT = PROJECT_ROOT / "data" / "open_datasets" / "labels" / "train_alpaca.json"
+SHAREGPT_OUTPUT = PROJECT_ROOT / "data" / "open_datasets" / "labels" / "train_sharegpt.json"
 
 INSTRUCTION = (
     "你是一位专业的二手电商平台商品标注专家。请仔细观察用户上传的商品图片，"

@@ -7,6 +7,7 @@ LangGraph 节点实现（多 Agent 协作版）
 """
 import base64
 import io
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +43,7 @@ async def preprocess_node(state: TaggingState) -> dict[str, Any]:
             "processed_size": preprocessed["processed_size"],
         }
     except Exception as e:
+        traceback.print_exc()
         return {
             **state,
             "error": f"预处理失败: {e}",
@@ -112,6 +114,7 @@ async def supervisor_node(state: TaggingState) -> dict[str, Any]:
 
         return output
     except Exception as e:
+        traceback.print_exc()
         return {
             **state,
             "error": f"Supervisor 调度失败: {e}",

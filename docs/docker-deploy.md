@@ -34,6 +34,30 @@ cp .env.example .env
 # 编辑 .env，设置 ZHIPU_API_KEY
 ```
 
+## 本地快速体验（含前端页面）
+
+无需 Docker，Mac 本机可直接启动：
+
+```bash
+# 1. 安装依赖（首次）
+python3 -m venv .venv
+.venv/bin/pip install -r services/requirements.txt
+
+# 2. 配置 API Key（疑难图分支需要）
+cp .env.example .env
+# 编辑 .env 填写 ZHIPU_API_KEY
+
+# 3. 启动三个服务
+bash scripts/start_local.sh
+
+# 4. 浏览器打开
+open http://127.0.0.1:8000/
+```
+
+前端支持拖拽上传图片，调用 `POST /tag/upload` 返回标签可视化结果。
+
+停止服务：`bash scripts/stop_local.sh`
+
 ## 启动
 
 ### GPU 部署（推荐）

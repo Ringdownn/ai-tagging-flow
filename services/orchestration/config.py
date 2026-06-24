@@ -6,6 +6,14 @@
 import os
 from pathlib import Path
 
+# 加载 .env 文件（项目根目录）
+try:
+    from dotenv import load_dotenv
+    _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+    load_dotenv(_PROJECT_ROOT / ".env")
+except ImportError:
+    pass
+
 # 允许在未安装项目 config 时独立运行
 try:
     from config.settings import (
@@ -23,7 +31,7 @@ try:
     )
 except ImportError:
     PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-    QWEN2VL_DIR = PROJECT_ROOT / "models" / "Qwen2.5-VL-7B"
+    QWEN2VL_DIR = PROJECT_ROOT / "models" / "qwen2.5-vl-7b-merge"
     REMOVE_BG_HOST = "0.0.0.0"
     REMOVE_BG_PORT = 8001
     DETECT_CROP_HOST = "0.0.0.0"
@@ -38,6 +46,8 @@ except ImportError:
 LOCAL_VLM_PATH = os.getenv("LOCAL_VLM_PATH", str(QWEN2VL_DIR))
 LOCAL_VLM_DEVICE = os.getenv("LOCAL_VLM_DEVICE", "auto")   # auto / cuda / cpu
 LOCAL_VLM_DTYPE = os.getenv("LOCAL_VLM_DTYPE", "auto")     # auto / float16 / bfloat16
+LOAD_IN_4BIT = os.getenv("LOAD_IN_4BIT", "false").lower() in ("true", "1", "yes")   # INT4 量化加载
+LOAD_IN_8BIT = os.getenv("LOAD_IN_8BIT", "false").lower() in ("true", "1", "yes")   # INT8 量化加载
 
 # ==================== GLM-4V API ====================
 ZHIPU_API_KEY = os.getenv("ZHIPU_API_KEY")

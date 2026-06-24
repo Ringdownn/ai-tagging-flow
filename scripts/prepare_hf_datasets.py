@@ -13,7 +13,7 @@
 使用方式:
 1. 设置环境变量 ZHIPU_API_KEY
 2. 安装依赖: pip install datasets requests Pillow tqdm
-3. 运行: python prepare_hf_datasets.py
+3. 运行: python scripts/prepare_hf_datasets.py
 """
 
 import os
@@ -31,7 +31,8 @@ from PIL import Image
 from tqdm import tqdm
 
 # ==================== 配置 ====================
-OUTPUT_DIR = Path("../data/open_datasets")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+OUTPUT_DIR = PROJECT_ROOT / "data" / "open_datasets"
 IMAGE_DIR = OUTPUT_DIR / "images"
 LABEL_DIR = OUTPUT_DIR / "labels"
 
@@ -45,10 +46,10 @@ FASHION_SAMPLE_SIZE = 30
 MMEC_CATEGORY_SAMPLE_SIZE = 70  # 仅取 category_classification 任务
 
 # 本地商品照片目录
-LOCAL_PRODUCT_DIR = Path("../商品照片")
+LOCAL_PRODUCT_DIR = PROJECT_ROOT / "商品照片"
 
 # 负例图目录（非电商场景：风景、人物、模糊、文字等）
-NEGATIVE_DIR = Path("../负例图")
+NEGATIVE_DIR = PROJECT_ROOT / "负例图"
 
 # 目标标签字段
 TARGET_LABEL_FIELDS = ["类目", "颜色", "材质/面料", "款式特征", "成色", "置信度", "复杂度"]

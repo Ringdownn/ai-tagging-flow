@@ -22,6 +22,13 @@ import sys
 import time
 from pathlib import Path
 
+# Fix Ultralytics config dir permission issue on Windows
+_proj_root = Path(__file__).resolve().parent.parent
+_ultra_dir = _proj_root / "temp" / "ultralytics"
+_ultra_dir.mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("YOLO_CONFIG_DIR", str(_ultra_dir))
+os.environ.setdefault("ULTRALYTICS_CONFIG_DIR", str(_ultra_dir))
+
 import requests
 import torch
 from fastapi import FastAPI, HTTPException, Request
@@ -110,7 +117,15 @@ class ObjectDetector:
 # ==================== FastAPI ====================
 
 app = FastAPI(title="商品检测裁切服务 - YOLOv8-Nano")
-detector = ObjectDetector(MODEL_PATH)
+_detector: ObjectDetector | None = None
+
+
+def get_detector() -> ObjectDetector:
+    """懒加载模型，避免三服务同时启动时内存峰值过高。"""
+    global _detector
+    if _detector is None:
+        _detector = ObjectDetector(MODEL_PATH)
+    return _detector
 
 
 def limit_max_side(pil_image: Image.Image, max_side: int) -> Image.Image:
@@ -186,14 +201,14 @@ async def _run_detect_crop(
     pil_image = limit_max_side(pil_image, MAX_SIDE)
 
     try:
-        detections = detector.detect(pil_image)
+        detections = get_detector().detect(pil_image)
     except Exception as e:
         raise HTTPException(500, f"检测推理失败: {e}") from e
 
     crops_base64: list[str] = []
     crops_pil: list[Image.Image] = []
     if return_crops and crop_format != "none" and detections:
-        crops_pil = detector.crop_sub_images(pil_image, detections)
+        crops_pil = get_detector().crop_sub_images(pil_image, detections)
         if crop_format == "base64":
             crops_base64 = [image_to_base64(c) for c in crops_pil]
 

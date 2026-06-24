@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .config import LOCAL_VLM_PATH, LOCAL_VLM_DEVICE, LOCAL_VLM_DTYPE
+from .config import LOCAL_VLM_PATH, LOCAL_VLM_DEVICE, LOCAL_VLM_DTYPE, LOAD_IN_4BIT, LOAD_IN_8BIT
 
 
 def _parse_model_output(text: str) -> dict:
@@ -50,10 +50,14 @@ class LocalVLM:
         model_path: str = LOCAL_VLM_PATH,
         device: str = LOCAL_VLM_DEVICE,
         dtype: str = LOCAL_VLM_DTYPE,
+        load_in_4bit: bool = LOAD_IN_4BIT,
+        load_in_8bit: bool = LOAD_IN_8BIT,
     ):
         self.model_path = model_path
         self.device = device
         self.dtype = dtype
+        self.load_in_4bit = load_in_4bit
+        self.load_in_8bit = load_in_8bit
         self.model = None
         self.processor = None
 
@@ -71,11 +75,68 @@ class LocalVLM:
             ) from e
 
         print(f"[INFO] 加载本地模型: {self.model_path}")
+        import torch as _torch
+
+        # 设备处理：量化时用 auto（允许 CPU offload），非量化时也用 auto
+        load_kwargs = {
+            "device_map": self.device,  # "auto" 由 accelerate 决定
+            "trust_remote_code": True,
+        }
+
+        # dtype 处理：auto 时用 float16（GPU）或 float32（CPU）
+        if self.dtype and self.dtype != "auto":
+            load_kwargs["torch_dtype"] = self.dtype
+        else:
+            if _torch.cuda.is_available():
+                load_kwargs["torch_dtype"] = _torch.float16
+            else:
+                load_kwargs["torch_dtype"] = _torch.float32
+
+        if self.load_in_4bit:
+            try:
+                from transformers import BitsAndBytesConfig
+                import torch
+            except ImportError as e:
+                raise ImportError(
+                    "INT4 量化需要安装 bitsandbytes: pip install bitsandbytes"
+                ) from e
+
+            print("[INFO] 启用 INT4 (bitsandbytes 4-bit) 量化加载（允许 CPU offload）")
+            compute_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+            load_kwargs["quantization_config"] = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_compute_dtype=compute_dtype,
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4",
+            )
+            # 限制 GPU 显存使用，自动将装不下的层放到 CPU
+            load_kwargs["max_memory"] = {0: "6.5GiB", "cpu": "30GiB"}
+            # 4-bit 量化时由 device_map 自动决定 torch_dtype，避免冲突
+            load_kwargs.pop("torch_dtype", None)
+        elif self.load_in_8bit:
+            try:
+                from transformers import BitsAndBytesConfig
+                import torch
+            except ImportError as e:
+                raise ImportError(
+                    "INT8 量化需要安装 transformers/torch: pip install transformers torch"
+                ) from e
+
+            print("[INFO] 启用 INT8 (bitsandbytes 8-bit) 量化加载（允许 CPU offload）")
+            load_kwargs["quantization_config"] = BitsAndBytesConfig(
+                load_in_8bit=True,
+                llm_int8_enable_fp32_cpu_offload=True,
+                llm_int8_skip_modules=["visual"],
+            )
+            # 限制 GPU 显存使用，自动将装不下的层放到 CPU
+            import torch
+            load_kwargs["max_memory"] = {0: "6.5GiB", "cpu": "30GiB"}
+            # 8-bit 量化时由 device_map 自动决定 torch_dtype
+            load_kwargs.pop("torch_dtype", None)
+
         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             self.model_path,
-            torch_dtype=self.dtype,
-            device_map=self.device,
-            trust_remote_code=True,
+            **load_kwargs,
         )
         self.processor = AutoProcessor.from_pretrained(
             self.model_path,
@@ -140,9 +201,8 @@ class LocalVLM:
             return_tensors="pt",
         )
 
-        if self.device != "auto":
-            inputs = inputs.to(self.device)
-        else:
+        # 将输入移到模型主设备（量化模型在 cuda:0）
+        if hasattr(self.model, "device"):
             inputs = inputs.to(self.model.device)
 
         outputs = self.model.generate(
@@ -152,7 +212,9 @@ class LocalVLM:
         )
 
         raw_output = self.processor.batch_decode(outputs, skip_special_tokens=True)[0]
+        print(f"[DEBUG] 本地模型原始输出: {raw_output[:500]}")
         parsed = _parse_model_output(raw_output)
+        print(f"[DEBUG] 解析结果: is_product={parsed.get('is_product')}, tags={parsed.get('tags')}, confidence={parsed.get('confidence')}")
 
         is_product = parsed.get("is_product", True)
         tags = parsed.get("tags", {}) if is_product else {}
