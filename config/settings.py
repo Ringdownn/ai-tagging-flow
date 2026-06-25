@@ -16,7 +16,7 @@ PROCESSED_DIR = DATA_DIR / "processed"    # 清洗后的训练数据
 
 # ==================== 模型路径 ====================
 MODELS_DIR = PROJECT_ROOT / "models"
-QWEN2VL_DIR = MODELS_DIR / "qwen2.5-vl-7b-merge"        # 本地 VLM 路径
+QWEN2VL_DIR = MODELS_DIR / "qwen2.5-vl-3b-merge"        # 本地 VLM 路径
 RMBG_DIR = MODELS_DIR / "RMBG-2.0"               # 抠图模型路径
 YOLO_DIR = MODELS_DIR / "yolo"                   # 检测模型目录
 YOLO_MODEL_PATH = YOLO_DIR / "yolov8n.pt"

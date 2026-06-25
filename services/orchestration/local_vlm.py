@@ -1,7 +1,8 @@
 """
-本地 Qwen2.5-VL-7B 模型封装
-==========================
+本地 Qwen2.5-VL 模型封装
+========================
 提供与 LangGraph 节点适配的 predict 接口。
+支持 CUDA / MPS (Apple Silicon) / CPU 后端。
 """
 import json
 import re
@@ -43,7 +44,7 @@ def _parse_model_output(text: str) -> dict:
 
 
 class LocalVLM:
-    """本地 Qwen2.5-VL-7B-Instruct 封装。"""
+    """本地 Qwen2.5-VL 模型封装。支持 3B/7B，CUDA/MPS/CPU 后端。"""
 
     def __init__(
         self,
@@ -61,8 +62,34 @@ class LocalVLM:
         self.model = None
         self.processor = None
 
+    def _resolve_device(self) -> tuple[str, str]:
+        """
+        解析运行设备和数据类型。
+        返回 (device, dtype_str)，其中 device 为 "cuda" / "mps" / "cpu"。
+        """
+        import torch
+
+        device = self.device
+        dtype_str = self.dtype
+
+        if device == "auto":
+            if torch.cuda.is_available():
+                device = "cuda"
+            elif torch.backends.mps.is_available():
+                device = "mps"
+            else:
+                device = "cpu"
+
+        if dtype_str == "auto":
+            if device in ("cuda", "mps"):
+                dtype_str = "float16"
+            else:
+                dtype_str = "float32"
+
+        return device, dtype_str
+
     def _load(self):
-        """懒加载模型。"""
+        """懒加载模型。支持 CUDA / MPS (Apple Silicon) / CPU。"""
         if self.model is not None:
             return
 
@@ -74,72 +101,69 @@ class LocalVLM:
                 "pip install transformers qwen-vl-utils accelerate"
             ) from e
 
-        print(f"[INFO] 加载本地模型: {self.model_path}")
-        import torch as _torch
+        import torch
 
-        # 设备处理：量化时用 auto（允许 CPU offload），非量化时也用 auto
+        device, dtype_str = self._resolve_device()
+        print(f"[INFO] 加载本地模型: {self.model_path}")
+        print(f"[INFO] 设备: {device}, 精度: {dtype_str}")
+
+        torch_dtype = getattr(torch, dtype_str)
+
         load_kwargs = {
-            "device_map": self.device,  # "auto" 由 accelerate 决定
+            "torch_dtype": torch_dtype,
             "trust_remote_code": True,
         }
 
-        # dtype 处理：auto 时优先 bfloat16（Qwen2.5-VL 原生精度），不支持则回退 float16/float32
-        if self.dtype and self.dtype != "auto":
-            load_kwargs["torch_dtype"] = self.dtype
-        else:
-            if _torch.cuda.is_available() and _torch.cuda.is_bf16_supported():
-                load_kwargs["torch_dtype"] = _torch.bfloat16
-            elif _torch.cuda.is_available():
-                load_kwargs["torch_dtype"] = _torch.float16
-            else:
-                load_kwargs["torch_dtype"] = _torch.float32
+        # CUDA: 使用 device_map 多 GPU 分配 + bitsandbytes 量化
+        if device == "cuda":
+            load_kwargs["device_map"] = "auto"
+            # auto 时优先 bfloat16（Qwen2.5-VL 原生精度），不支持则回退 float16
+            if self.dtype == "auto":
+                if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
+                    load_kwargs["torch_dtype"] = torch.bfloat16
+                else:
+                    load_kwargs["torch_dtype"] = torch.float16
 
-        if self.load_in_4bit:
-            try:
+            if self.load_in_4bit:
                 from transformers import BitsAndBytesConfig
-                import torch
-            except ImportError as e:
-                raise ImportError(
-                    "INT4 量化需要安装 bitsandbytes: pip install bitsandbytes"
-                ) from e
-
-            print("[INFO] 启用 INT4 (bitsandbytes 4-bit) 量化加载（允许 CPU offload）")
-            compute_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
-            load_kwargs["quantization_config"] = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_compute_dtype=compute_dtype,
-                bnb_4bit_use_double_quant=True,
-                bnb_4bit_quant_type="nf4",
-            )
-            # 限制 GPU 显存使用，自动将装不下的层放到 CPU
-            load_kwargs["max_memory"] = {0: "6.5GiB", "cpu": "30GiB"}
-            # 4-bit 量化时由 device_map 自动决定 torch_dtype，避免冲突
-            load_kwargs.pop("torch_dtype", None)
-        elif self.load_in_8bit:
-            try:
+                print("[INFO] 启用 INT4 (bitsandbytes 4-bit) 量化")
+                compute_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+                load_kwargs["quantization_config"] = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_compute_dtype=compute_dtype,
+                    bnb_4bit_use_double_quant=True,
+                    bnb_4bit_quant_type="nf4",
+                )
+                load_kwargs.pop("torch_dtype", None)
+            elif self.load_in_8bit:
                 from transformers import BitsAndBytesConfig
-                import torch
-            except ImportError as e:
-                raise ImportError(
-                    "INT8 量化需要安装 transformers/torch: pip install transformers torch"
-                ) from e
+                print("[INFO] 启用 INT8 (bitsandbytes 8-bit) 量化")
+                load_kwargs["quantization_config"] = BitsAndBytesConfig(
+                    load_in_8bit=True,
+                    llm_int8_enable_fp32_cpu_offload=True,
+                    llm_int8_skip_modules=["visual"],
+                )
+                load_kwargs.pop("torch_dtype", None)
 
-            print("[INFO] 启用 INT8 (bitsandbytes 8-bit) 量化加载（允许 CPU offload）")
-            load_kwargs["quantization_config"] = BitsAndBytesConfig(
-                load_in_8bit=True,
-                llm_int8_enable_fp32_cpu_offload=True,
-                llm_int8_skip_modules=["visual"],
-            )
-            # 限制 GPU 显存使用，自动将装不下的层放到 CPU
-            import torch
-            load_kwargs["max_memory"] = {0: "6.5GiB", "cpu": "30GiB"}
-            # 8-bit 量化时由 device_map 自动决定 torch_dtype
-            load_kwargs.pop("torch_dtype", None)
+        # MPS / CPU: 不使用 device_map（这是 CUDA 多 GPU 特性），
+        # 也不使用 bitsandbytes（CUDA only）
+        if device in ("mps", "cpu"):
+            if self.load_in_4bit or self.load_in_8bit:
+                print(
+                    "[WARN] bitsandbytes 量化仅支持 CUDA，"
+                    f"在 {device} 上将使用 {dtype_str} 全精度加载"
+                )
 
         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             self.model_path,
             **load_kwargs,
         )
+
+        # MPS: 加载到 CPU 后再移到 MPS（避免 device_map 兼容问题）
+        if device == "mps":
+            print("[INFO] 将模型移至 MPS (Apple Silicon GPU)...")
+            self.model = self.model.to("mps")
+
         self.processor = AutoProcessor.from_pretrained(
             self.model_path,
             trust_remote_code=True,

@@ -17,7 +17,7 @@ if [[ -f "$ROOT/.env" ]]; then
   set +a
 fi
 
-export LOCAL_VLM_PATH="${LOCAL_VLM_PATH:-$ROOT/models/qwen2.5-vl-7b-merge}"
+export LOCAL_VLM_PATH="${LOCAL_VLM_PATH:-$ROOT/models/qwen2.5-vl-3b-merge}"
 export REMOVE_BG_URL="${REMOVE_BG_URL:-http://127.0.0.1:8001}"
 export DETECT_CROP_URL="${DETECT_CROP_URL:-http://127.0.0.1:8002}"
 export LOCAL_VLM_DEVICE="${LOCAL_VLM_DEVICE:-auto}"

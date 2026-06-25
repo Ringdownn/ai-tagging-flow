@@ -31,7 +31,7 @@ try:
     )
 except ImportError:
     PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-    QWEN2VL_DIR = PROJECT_ROOT / "models" / "qwen2.5-vl-7b-merge"
+    QWEN2VL_DIR = PROJECT_ROOT / "models" / "qwen2.5-vl-3b-merge"
     REMOVE_BG_HOST = "0.0.0.0"
     REMOVE_BG_PORT = 8001
     DETECT_CROP_HOST = "0.0.0.0"

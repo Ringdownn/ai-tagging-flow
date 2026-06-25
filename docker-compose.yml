@@ -55,7 +55,7 @@ services:
     environment:
       REMOVE_BG_URL: http://remove-bg:8001
       DETECT_CROP_URL: http://detect-crop:8002
-      LOCAL_VLM_PATH: ${LOCAL_VLM_PATH:-/app/models/qwen2.5-vl-7b-merge}
+      LOCAL_VLM_PATH: ${LOCAL_VLM_PATH:-/app/models/qwen2.5-vl-3b-merge}
       LOCAL_VLM_DEVICE: ${LOCAL_VLM_DEVICE:-auto}
       LOCAL_VLM_DTYPE: ${LOCAL_VLM_DTYPE:-auto}
       ZHIPU_API_KEY: ${ZHIPU_API_KEY:-}
