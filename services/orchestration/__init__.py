@@ -14,6 +14,9 @@ from .tools import preprocess_image_bytes
 
 
 def _format_result(result: dict) -> dict:
+    # 提取工具调用链，兼容 None / 空列表 / 多商品模式
+    tool_outputs = result.get("tool_outputs") or {}
+    tool_chain = tool_outputs.get("tool_chain") or []
     return {
         "tags": result.get("final_tags", {}),
         "tags_list": result.get("final_tags_list"),
@@ -23,6 +26,7 @@ def _format_result(result: dict) -> dict:
         "is_product": result.get("is_product", True),
         "original_size": result.get("original_size"),
         "processed_size": result.get("processed_size"),
+        "tools": tool_chain,
         "raw_state": result,
     }
 

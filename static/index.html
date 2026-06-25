@@ -212,6 +212,8 @@
     .badge-non_product { background: #fef3c7; color: #92400e; }
     .badge-error { background: #fee2e2; color: #991b1b; }
     .badge-unknown { background: #f3f4f6; color: #374151; }
+    .badge-tools { background: #f3e8ff; color: #6b21a8; }
+    .badge-no-tools { background: #f3f4f6; color: #6b7280; }
 
     .metrics {
       display: flex;
@@ -318,7 +320,10 @@
     <div class="card hidden" id="resultCard">
       <div class="result-header">
         <h2 style="font-size: 1.15rem;">识别结果</h2>
-        <span class="badge" id="branchBadge"></span>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <span class="badge" id="branchBadge"></span>
+          <span class="badge" id="toolsBadge"></span>
+        </div>
       </div>
 
       <div class="metrics" id="metrics"></div>
@@ -340,6 +345,7 @@
     const spinner = document.getElementById("spinner");
     const resultCard = document.getElementById("resultCard");
     const branchBadge = document.getElementById("branchBadge");
+    const toolsBadge = document.getElementById("toolsBadge");
     const metrics = document.getElementById("metrics");
     const tagsGrid = document.getElementById("tagsGrid");
 
@@ -427,10 +433,24 @@
       clearBtn.disabled = true;
     });
 
+    const TOOL_LABELS = {
+      detect_crop: "主体检测",
+      remove_bg: "背景移除",
+    };
+
     function renderResult(data) {
       const branch = data.branch || "unknown";
       branchBadge.textContent = BRANCH_LABELS[branch] || branch;
       branchBadge.className = "badge badge-" + (BRANCH_LABELS[branch] ? branch : "unknown");
+
+      const tools = data.tools || [];
+      if (tools.length > 0) {
+        toolsBadge.textContent = "工具: " + tools.map(t => TOOL_LABELS[t] || t).join("、");
+        toolsBadge.className = "badge badge-tools";
+      } else {
+        toolsBadge.textContent = "未调用工具";
+        toolsBadge.className = "badge badge-no-tools";
+      }
 
       metrics.innerHTML = `
         <div class="metric">
